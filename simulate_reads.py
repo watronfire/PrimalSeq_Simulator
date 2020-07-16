@@ -5,8 +5,9 @@ from subprocess import call
 import os
 from Bio import SeqIO
 import pandas as pd
+import sys
 
-def parse_primer_scheme( primer_loc: str ) -> list:
+def parse_primer_scheme( primer_loc ):
     """ Loads and parses primer bed file into a list of amplicon boundaries.
     Parameters
     ----------
@@ -75,10 +76,8 @@ def add_substitution( sequence, base, alternative, ancestral ):
     str
         The input sequence with the specified substituted performed.
     """
-    try:
-        if sequence[base] != ancestral:
-            print( "Base in sequence isn't equal to ancestral. Was the variant table generated from this reference?" )
-            exit( 2 )
+    if sequence[base] != ancestral:
+        sys.exit( "Base in sequence isn't equal to ancestral. Was the variant table generated from this reference?" )
 
     return sequence[:base] + alternative + sequence[base+1:]
 
@@ -114,15 +113,18 @@ def extract_amplicon( temp_location, reference, primer_pair, variants=None, read
         amplicon_variants = variants.loc[variants["POS"].between( primer_pair[1][0], primer_pair[1][1])]
         if len( amplicon_variants ) > 0:
             for index, row in amplicon_variants.iterrows():
-                seq_temp = add_substitution( seq, row["POS"], row["ALT"], row["REF"] )
+
+                var_amplicon_position = row["POS"] - primer_pair[1][0]
+
+                seq_temp = add_substitution( seq, var_amplicon_position, row["ALT"], row["REF"] )
                 reads_temp = np.round( reads_assigned * row["ALT_FREQ"] )
                 reads_required += reads_temp
 
                 seqs.append( [seq_temp, reads_temp] )
 
         if reads_required > reads_assigned + 5:
-            print( "Reads requested cannot be generated. Known limitation of purely unlinked variants." )
-            exit( 3 )
+            sys.exit( "Reads requested cannot be generated. Known limitation of purely unlinked variants." )
+
 
     seqs.append( [seq, reads_assigned - reads_required] )
 
@@ -131,7 +133,7 @@ def extract_amplicon( temp_location, reference, primer_pair, variants=None, read
     for i, j in enumerate( seqs ):
         fp = tempfile.NamedTemporaryFile( dir=temp_location, suffix=".fasta", mode="w+", delete=False )
         fp.write( "> {}\n".format( primer_pair[0] + "_v{}".format( i )  ) )
-        fp.write( seq + "\n" )
+        fp.write( j[0] + "\n" )
         fp.close()
         return_list.append( [fp.name, j[1]] )
     return return_list
@@ -210,7 +212,7 @@ def combine_and_output( amplicon_locations, output_prefix ):
             with open( sim_pair[1], "r" ) as second:
                 for line in second: second_read.write( line )
 
-def generate_variants( reference, count=None, count_exp=10, frequency_scale=20 ):
+def generate_variants( reference, count=None, count_exp=10, frequency_scale=0.09, var_type="all", retry_limit=1000 ):
     """ Generates a simulated vcf file to use for use in simulating variants. Will be expanded to with optional manual \
     functionality. Currently samples variant frequency from an inverse exponential distribution.
     Parameters
@@ -222,7 +224,11 @@ def generate_variants( reference, count=None, count_exp=10, frequency_scale=20 )
     count_exp : int, optional
         The expected number of variants for the poisson distribution. Not used if count is specified.
     frequency_scale : int, optional
-        The scale parameter to use to parameterize the exponential distribution.
+        The scale parameter to use to parameterize the exponential distribution. Higher value will induce higher frequencies.
+    var_type : {'all', 'major', 'minor'}
+        Indicates what type of variants to generate. Useable options are: "minor" - alternative frequency < 0.5, "major" - alternative frequency > 0.5, "all" - alternative frequency < 1.
+    retry_limit : int, optional
+        The number of tries the sampler can used to generate a suitable alternative frequency according to var_type.
 
     Returns
     -------
@@ -233,6 +239,15 @@ def generate_variants( reference, count=None, count_exp=10, frequency_scale=20 )
         variants = count
     else:
         variants = np.random.poisson( count_exp )
+
+    if var_type == "minor":
+        frequency_requirement = lambda x: x < 0.5
+    elif var_type == "major":
+        frequency_requirement = lambda x : 1 > x > 0.5
+    elif var_type == "all":
+        frequency_requirement = lambda x : True
+    else:
+        sys.exit( "'{}' is not a known variant type. Valid options are ['minor', 'major', 'all']".format( var_type ) )
 
     var_table = list()
 
@@ -245,9 +260,20 @@ def generate_variants( reference, count=None, count_exp=10, frequency_scale=20 )
         ancestral = reference.seq[base_to_modify]
         bases.remove( ancestral )
         minor_variant = np.random.choice( bases )
-        alternative_frequency = 1 / np.random.geometric( p=0.03 )
+        alternative_frequency = np.random.exponential( scale=frequency_scale )
+
+        retry_count = 0
+        while not frequency_requirement( alternative_frequency ):
+            alternative_frequency = np.random.exponential( scale=frequency_scale )
+            if retry_count > retry_limit:
+                sys.exit( "Frequency sample limit reached. Distribution scale is either too high for minor variants, or too low for major variants" )
+            retry_count += 1
 
         var_table.append( ( reference.name, base_to_modify, ancestral, minor_variant, alternative_frequency ) )
+
+    return_df = pd.DataFrame( var_table, columns=["CHROM", "POS", "REF", "ALT", "ALT_FREQ"] )
+
+
 
     return pd.DataFrame( var_table, columns=["CHROM", "POS", "REF", "ALT", "ALT_FREQ"] )
 
@@ -288,7 +314,10 @@ def main( arguments ):
             variants_table = generate_variants( ref, count_exp=arguments.variants_std )
         else:
             variants_table = generate_variants( ref )
-    print( variants_table )
+        #if arguments.correct:
+        #    variants_table = correct_variants( variants_table )
+
+    print( variants_table.sort_values( "POS" ) )
 
     if arguments.reads:
         amplicon_coverage = get_coverage( primer_pairs, arguments.reads, False )
