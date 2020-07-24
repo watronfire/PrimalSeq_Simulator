@@ -77,7 +77,7 @@ def add_substitution( sequence, base, alternative, ancestral ):
         The input sequence with the specified substituted performed.
     """
     if sequence[base] != ancestral:
-        sys.exit( "Base in sequence isn't equal to ancestral. Was the variant table generated from this reference?" )
+        sys.exit( "Base in sequence({}) isn't equal to ancestral({}, Alternative: {}). Was the variant table generated from this reference?".format( sequence[base], ancestral, alternative ) )
 
     return sequence[:base] + alternative + sequence[base+1:]
 
@@ -370,8 +370,6 @@ def simulate_reads( executable, primers, ref, output, coverage=None, variants=Fa
                                                  seed=seed) )
         combine_and_output( return_list, output )
 
-# TODO: Move some of the functionality of this into simulate reads. Right now it is difficult to use the script as an
-#  import.
 def main( arguments ):
     """
     Parameters
