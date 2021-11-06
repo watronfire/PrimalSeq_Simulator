@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
 import tempfile
-from subprocess import call, STDOUT
+from subprocess import call
 import os
 from Bio import SeqIO
 import pandas as pd
@@ -37,7 +37,8 @@ def parse_primer_scheme( primer_loc ):
         return primer_list
 
 def get_coverage( primer_scheme, reads, coverage ):
-    """ Calculates per amplicon coverage given a primer scheme and either a per-amplicon requirement or a per-sample requirement
+    """
+    Calculates per amplicon coverage given a primer scheme and either a per-amplicon requirement or a per-sample requirement
     Parameters
     ----------
     primer_scheme : Iterable
@@ -285,8 +286,6 @@ def generate_variants( reference, count=None, count_exp=None, frequency_scale=No
     # Return a pseudo-VCF table.
     return_df = pd.DataFrame( var_table, columns=["CHROM", "POS", "REF", "ALT", "ALT_FREQ"] )
 
-
-
     return pd.DataFrame( var_table, columns=["CHROM", "POS", "REF", "ALT", "ALT_FREQ"] )
 
 def simulate_reads( executable, primers, ref, output, coverage=None, variants=False, variant_count=None,
@@ -366,7 +365,7 @@ def simulate_reads( executable, primers, ref, output, coverage=None, variants=Fa
                                                  temp_location=tmpdirname,
                                                  reference=j[0],
                                                  reads=j[1],
-                                                 read_length=250,
+                                                 read_length=150,
                                                  seed=seed) )
         combine_and_output( return_list, output )
 

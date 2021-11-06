@@ -91,7 +91,7 @@ def generate_tree( reference, num_samples, p=0.5, output=None ):
     tree = tree.replace( "]", ")" )
     tree = Phylo.read( StringIO( tree ), "newick" )
     tree.ladderize()
-    print( tree )
+    Phylo.draw_ascii( tree )
     if output is not None:
         Phylo.write( tree, output, "newick" )
 
