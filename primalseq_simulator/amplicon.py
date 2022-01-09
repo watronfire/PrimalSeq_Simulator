@@ -1,5 +1,3 @@
-import Bio
-
 class Amplicon( object ):
     def __init__(self, sequence: str, name: str, start: int, stop: int, reads: int ):
         if len( sequence ) != stop - start:
@@ -10,6 +8,6 @@ class Amplicon( object ):
         self.stop = stop
         self.reads = reads
 
-    def __len__( self ):
+    def __len__( self ) -> int:
         return len( self.seq )
 

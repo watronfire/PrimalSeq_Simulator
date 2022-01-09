@@ -6,16 +6,16 @@ from primalseq_simulator.primer import Primer
 
 
 class Genome( object ):
-    def __init__( self, seq: str, primers: str, reads: int = None, coverage: int = None ):
+    def __init__( self, sequence: str, primers: str, reads: int = None, coverage: int = None ):
         # Make sure everything is in place before initiating.
-        if seq is None:
+        if sequence is None:
             raise ValueError( "A sequence must be specified when constructing a genome" )
         if primers is None:
             raise ValueError( "Primers must be given to simulate PrimalSeq reads." )
         if ( reads is not None ) and ( coverage is not None ):
             raise ValueError( "Both reads and coverage cannot be specified" )
 
-        self.sequence = str( SeqIO.read( seq, "fasta" ).seq )
+        self.sequence = str( SeqIO.read( sequence, "fasta" ).seq )
 
         self.amplicons = self.generate_amplicons( primers, reads, coverage )
 
@@ -51,7 +51,23 @@ class Genome( object ):
             distribution = np.ones( len( primer_scheme ) ) / len( primer_scheme )
             return np.random.multinomial( reads, distribution )
 
-    def generate_amplicons( self, primers, reads, coverage ) -> list:
+    def generate_amplicons( self, primers: str, reads: int, coverage: bool ) -> list:
+        """
+        Reads in a primer bed file, a requested number of total or per amplicon reads, and generates an amplicon object
+        for each amplicon in the bed file.
+        Parameters
+        ----------
+        primers : str
+            Number of reads to generate in total.
+        reads : int
+            Number of requested reads.
+        coverage :
+            Specifies whether reads refer to per-amplicon coverage (True) or total reads (False).
+        Returns
+        -------
+        list
+            A list containing an Amplicon object for each amplicon specified in primers.
+        """
         return_list = list()
         primer_scheme = Primer.parse_primer_bed( primers )
         for p, r in zip( primer_scheme, self.get_coverage( primer_scheme, reads, coverage ) ):

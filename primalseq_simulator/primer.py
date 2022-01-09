@@ -1,11 +1,5 @@
 
 class Primer( object ):
-    """
-    Attributes
-    ----------
-    scheme : list
-        a list containing entries for each primer pair with the structure [Primer_name,[Left_bound, Right_bound]].
-    """
     def __init__( self, name, left, right ):
         """
         Loads a bed file representing a primer scheme.
@@ -19,7 +13,7 @@ class Primer( object ):
         self.right = right
 
     @staticmethod
-    def parse_primer_bed( loc ):
+    def parse_primer_bed( loc: str ) -> list:
         scheme = list()
 
         with open( loc, "r" ) as primer_file:
